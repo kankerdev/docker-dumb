@@ -1,0 +1,109 @@
+name: Build and publish containers
+
+on:
+  push:
+  workflow_dispatch:
+  schedule: [ cron: '0 4 * * *' ]
+
+permissions:
+  packages: write
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    outputs:
+      commit: ${{ steps.metadata.outputs.commit }}
+      continue: ${{ steps.metadata.outputs.continue }}
+    strategy:
+      fail-fast: true
+      matrix:
+        architecture: [ amd64, arm32v7, arm64v8 ]
+        include: 
+          - architecture: amd64
+            platform: linux/amd64
+          - architecture: arm32v7
+            platform: linux/arm/v7
+          - architecture: arm64v8
+            platform: linux/arm64
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: git clone --depth=1 https://github.com/rramiachraf/dumb src
+
+      - id: metadata
+        run: |
+          cd src/
+          echo "continue=$(diff -u ../.last_commit <(git rev-parse --short HEAD) > /dev/null 2>&1 && echo false || echo true)" >> $GITHUB_OUTPUT
+          echo "commit=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - if: ${{ steps.metadata.outputs.continue == 'true' }}
+        uses: docker/setup-qemu-action@v3
+  
+      - if: ${{ steps.metadata.outputs.continue == 'true' }}
+        uses: docker/setup-buildx-action@v3
+
+      - if: ${{ steps.metadata.outputs.continue == 'true' }}
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - if: ${{ steps.metadata.outputs.continue == 'true' }}
+        uses: docker/metadata-action@v5
+        id: image-metadata
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=raw,value=${{ matrix.architecture }}-${{ steps.metadata.outputs.commit }},enable={{is_default_branch}}
+            type=raw,value=${{ matrix.architecture }},enable={{is_default_branch}}
+
+      - if: ${{ steps.metadata.outputs.continue == 'true' }}
+        uses: docker/build-push-action@v5
+        with:
+          push: true
+          context: ./src
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: ${{ matrix.platform }}
+          tags: ${{ steps.image-metadata.outputs.tags }}
+
+  merge:
+    runs-on: ubuntu-20.04
+    needs: [ build ]
+    if: ${{ needs.build.outputs.continue == 'true' }}
+    env:
+      IMAGE: ghcr.io/${{ github.repository }}
+      COMMIT: ${{ needs.build.outputs.commit }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 } # Need history to push to repo
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - run: |
+          docker buildx imagetools create \
+            --tag ${IMAGE}:${COMMIT} ${IMAGE}:{amd64,arm32v7,arm64v8}-${COMMIT}
+          docker buildx imagetools create \
+            --tag ${IMAGE}:${VERSION} ${IMAGE}:{amd64,arm32v7,arm64v8}-${VERSION}
+          docker buildx imagetools create \
+            --tag ${IMAGE}:latest ${IMAGE}:{amd64,arm32v7,arm64v8}
+
+      - run: |          
+          OLD=$(cat .last_commit)
+          NEW=${COMMIT}
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          
+          echo "${NEW}" > .last_commit
+          git add .last_commit
+          git commit -m "Update .last_commit" -m "${OLD} >> ${NEW}"
+          
+          git status
+          git push -u origin master
