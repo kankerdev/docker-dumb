@@ -88,8 +88,6 @@ jobs:
           docker buildx imagetools create \
             --tag ${IMAGE}:${COMMIT} ${IMAGE}:{amd64,arm64v8}-${COMMIT}
           docker buildx imagetools create \
-            --tag ${IMAGE}:${VERSION} ${IMAGE}:{amd64,arm64v8}-${VERSION}
-          docker buildx imagetools create \
             --tag ${IMAGE}:latest ${IMAGE}:{amd64,arm64v8}
 
       - run: |          
