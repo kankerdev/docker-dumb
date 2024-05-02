@@ -22,8 +22,6 @@ jobs:
         include: 
           - architecture: amd64
             platform: linux/amd64
-          - architecture: arm32v7
-            platform: linux/arm/v7
           - architecture: arm64v8
             platform: linux/arm64
     steps:
@@ -88,11 +86,11 @@ jobs:
 
       - run: |
           docker buildx imagetools create \
-            --tag ${IMAGE}:${COMMIT} ${IMAGE}:{amd64,arm32v7,arm64v8}-${COMMIT}
+            --tag ${IMAGE}:${COMMIT} ${IMAGE}:{amd64,arm64v8}-${COMMIT}
           docker buildx imagetools create \
-            --tag ${IMAGE}:${VERSION} ${IMAGE}:{amd64,arm32v7,arm64v8}-${VERSION}
+            --tag ${IMAGE}:${VERSION} ${IMAGE}:{amd64,arm64v8}-${VERSION}
           docker buildx imagetools create \
-            --tag ${IMAGE}:latest ${IMAGE}:{amd64,arm32v7,arm64v8}
+            --tag ${IMAGE}:latest ${IMAGE}:{amd64,arm64v8}
 
       - run: |          
           OLD=$(cat .last_commit)
