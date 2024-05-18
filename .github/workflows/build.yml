@@ -3,7 +3,7 @@ name: Build and publish containers
 on:
   push:
   workflow_dispatch:
-  schedule: [ cron: '0 4 * * *' ]
+  schedule: [ cron: '0 0 * * *' ]
 
 permissions:
   packages: write
