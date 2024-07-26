@@ -52,7 +52,7 @@ jobs:
         uses: docker/metadata-action@v5
         id: image-metadata
         with:
-          images: ghcr.io/${{ github.repository }}
+          images: ghcr.io/kankerdev/dumb
           tags: |
             type=raw,value=${{ matrix.architecture }}-${{ steps.metadata.outputs.commit }},enable={{is_default_branch}}
             type=raw,value=${{ matrix.architecture }},enable={{is_default_branch}}
@@ -72,7 +72,7 @@ jobs:
     needs: [ build ]
     if: ${{ needs.build.outputs.continue == 'true' }}
     env:
-      IMAGE: ghcr.io/${{ github.repository }}
+      IMAGE: ghcr.io/kankerdev/dumb
       COMMIT: ${{ needs.build.outputs.commit }}
     steps:
       - uses: actions/checkout@v4
